@@ -1,0 +1,36 @@
+cache:
+  paths:
+    - node_modules/
+    - .yarn
+stages:
+  - build
+  - docker-build
+  - deploy
+
+build:
+  stage: build
+  image: node
+  script: 
+    - echo "Start building App"
+    - yarn config set cache-folder .yarn
+    - yarn install --pure-lockfile --cache-folder .yarn
+    - yarn build
+    - echo "Build successfully!"
+  artifacts:
+    expire_in: 1 hour
+    paths:
+      - build
+
+docker-build:
+  stage: docker-build
+  image: docker:latest
+  services: 
+    - name: docker:19.03.8-dind
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - dtag=`date +"%m%d%Y%-H%M"`
+    - docker build --pull -t "$CI_REGISTRY_IMAGE" .
+    - docker image tag "$CI_REGISTRY_IMAGE" "$CI_REGISTRY_IMAGE":"$dtag"
+    - docker push "$CI_REGISTRY_IMAGE":"$dtag"
+    - echo "Registry image:" $CI_REGISTRY_IMAGE
